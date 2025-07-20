@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "src/index.ts", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/ping", "dest": "/src/index.ts" }
+  ],
+  "env": {
+    "ENVIRONMENT": "production"
+  }
+}
