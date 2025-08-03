@@ -14,7 +14,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Test route
 app.get("/api/ping", (req, res) => {
   res.json({ message: "pong" });
 });
