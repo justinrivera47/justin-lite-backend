@@ -8,7 +8,6 @@ export async function extractUserMemory(
 ) {
   if (summaries.length === 0) return
 
-  // Load existing memory
   const { data: existingMemory } = await supabaseAdmin
     .from("user_context")
     .select("key, value")
