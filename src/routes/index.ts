@@ -21,8 +21,6 @@ import { aiRateLimiter, readRateLimiter, writeRateLimiter } from "../middleware/
 
 const router = Router()
 
-// ---- Conversations ----
-
 router.post("/conversations", 
   requireAuth,
   writeRateLimiter, 
