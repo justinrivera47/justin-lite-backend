@@ -8,7 +8,6 @@ export async function updateConversationSummary(
   conversationId: string,
   userId: string
 ) {
-  // Verify ownership
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("id, summary, summary_count")
