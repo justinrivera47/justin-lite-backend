@@ -152,7 +152,6 @@ router.post(
         )
       }
 
-      // 4️⃣ Respond
       res.status(201).json(assistantMessage)
     } catch (err: any) {
       console.error("[respond]", err)
