@@ -4,8 +4,6 @@ import { AppError } from "../errors/AppError"
 let _admin: SupabaseClient | null = null
 
 export function getSupabaseAdmin(): SupabaseClient {
-  if (_admin) return _admin
-
   const supabaseUrl = process.env.SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
@@ -17,9 +15,12 @@ export function getSupabaseAdmin(): SupabaseClient {
     )
   }
 
+  if (_admin) return _admin
+
   _admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
   })
 
   return _admin
 }
+export const supabaseAdmin = getSupabaseAdmin()

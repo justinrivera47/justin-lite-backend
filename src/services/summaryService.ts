@@ -20,7 +20,7 @@ export async function updateConversationSummary(
   throw new NotFoundError("Conversation not found")
 }
 
-  // Fetch recent messages (bounded window)
+// after assistantMessage is created:
   const { data: messages } = await supabaseAdmin
     .from("messages")
     .select("role, content")

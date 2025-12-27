@@ -1,109 +1,18 @@
+// src/routes/index.ts (or wherever your router lives)
 import { Router } from "express"
 import { requireAuth } from "../middleware/requireAuth"
-import {
-  createConversation,
-  getUserConversations,
-  getConversationById,
-  deleteConversation,
-} from "../services/conversationService"
-import {
-  getMessagesForConversation,
-  createMessage,
-} from "../services/messageService"
-import { generateAssistantResponse } from "../services/aiService"
+import { aiRateLimiter } from "../middleware/rateLimit"
 import { validate } from "../middleware/validate"
-import { createConversationSchema } from "../validation/conversationSchemas"
-import { createMessageSchema, respondSchema } from "../validation/messageSchemas"
-import { aiRateLimiter, readRateLimiter, writeRateLimiter } from "../middleware/rateLimit"
-import billingRoutes from "./billing"
+import { respondSchema } from "../validation/messageSchemas"
+
+import { createMessage } from "../services/messageService"
+import { generateAssistantResponse } from "../services/aiService"
+
+import { getSupabaseAdmin } from "../lib/supabase"
+import { updateConversationSummary } from "../services/summaryService"
+import { extractUserMemory } from "../services/memoryService"
 
 const router = Router()
-
-router.post("/conversations", 
-  requireAuth,
-  writeRateLimiter, 
-  validate(createConversationSchema), 
-  async (req, res) => {
-  try {
-    const convo = await createConversation(
-      req.user!.id,
-      req.body.title
-    )
-    res.status(201).json(convo)
-  } catch (err: any) {
-    res.status(400).json({ error: err.message })
-  }
-})
-
-router.use("/billing", billingRoutes)
-
-
-router.get("/conversations", 
-  requireAuth, 
-  readRateLimiter,
-  async (req, res) => {
-  const convos = await getUserConversations(req.user!.id)
-  res.json(convos)
-})
-
-router.get("/conversations/:id", requireAuth, async (req, res) => {
-  try {
-    const convo = await getConversationById(
-      req.params.id,
-      req.user!.id
-    )
-    res.json(convo)
-  } catch (err: any) {
-    res.status(404).json({ error: err.message })
-  }
-})
-
-router.delete("/conversations/:id", requireAuth, async (req, res) => {
-  try {
-    await deleteConversation(req.params.id, req.user!.id)
-    res.status(204).send()
-  } catch (err: any) {
-    res.status(400).json({ error: err.message })
-  }
-})
-
-// ---- Messages ----
-
-router.get(
-  "/conversations/:id/messages",
-  requireAuth,
-  async (req, res) => {
-    try {
-      const messages = await getMessagesForConversation(
-        req.params.id,
-        req.user!.id
-      )
-      res.json(messages)
-    } catch (err: any) {
-      res.status(404).json({ error: err.message })
-    }
-  }
-)
-
-router.post(
-  "/conversations/:id/messages",
-  requireAuth,
-  writeRateLimiter,
-  validate(createMessageSchema),
-  async (req, res) => {
-    try {
-      const message = await createMessage(
-        req.params.id,
-        req.user!.id,
-        "user",
-        req.body.content
-      )
-      res.status(201).json(message)
-    } catch (err: any) {
-      res.status(400).json({ error: err.message })
-    }
-  }
-)
 
 router.post(
   "/conversations/:id/respond",
@@ -114,26 +23,47 @@ router.post(
     try {
       const conversationId = req.params.id
       const userId = req.user!.id
-      const content: string = req.body.content
+      const content = req.body.content as string
+      const userMessage = await createMessage(conversationId, userId, "user", content)
+      const assistantMessage = await generateAssistantResponse(conversationId, userId)
+      const supabaseAdmin = getSupabaseAdmin()
 
-      const userMessage = await createMessage(
-        conversationId,
-        userId,
-        "user",
-        content
-      )
+      const MESSAGE_THRESHOLD = 6
+      const REFLECTION_THRESHOLD = 3
 
-      const assistantMessage = await generateAssistantResponse(
-        conversationId,
-        userId
-      )
+      const { count } = await supabaseAdmin
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("conversation_id", conversationId)
 
+      if (count && count % MESSAGE_THRESHOLD === 0) {
+        await updateConversationSummary(conversationId, userId)
+
+        const { data: convo } = await supabaseAdmin
+          .from("conversations")
+          .select("summary_count, user_id")
+          .eq("id", conversationId)
+          .single()
+
+        if (convo?.summary_count && convo.summary_count % REFLECTION_THRESHOLD === 0) {
+          const { data: summaries } = await supabaseAdmin
+            .from("conversations")
+            .select("summary")
+            .eq("user_id", convo.user_id)
+            .order("updated_at", { ascending: false })
+            .limit(REFLECTION_THRESHOLD)
+
+          await extractUserMemory(
+            convo.user_id,
+            summaries?.map((s) => s.summary).filter(Boolean) ?? []
+          )
+        }
+      }
       return res.status(201).json({ userMessage, assistantMessage })
     } catch (err) {
       return next(err)
     }
   }
 )
-
 
 export default router

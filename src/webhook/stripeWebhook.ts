@@ -50,7 +50,7 @@ if (!session.subscription || !session.customer) {
     stripeCustomerId: customer.id,
     stripeSubscriptionId: subscription.id,
     status: subscription.status,
-    currentPeriodEnd: subscription.items.data[0]?.current_period_end ?? null,
+    currentPeriodEnd: (subscription as any).current_period_end ?? null,
     planCode: subscription.items.data[0]?.price?.id,
   })
 

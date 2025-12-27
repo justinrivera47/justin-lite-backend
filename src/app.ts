@@ -25,11 +25,9 @@ const corsOptions: cors.CorsOptions = {
       "https://chat.selfrevolutions.com",
       "https://www.chat.selfrevolutions.com",
     ]
-    if (!origin) return callback(null, true)
-
-    if (allowedOrigins.includes(origin)) return callback(null, true)
-
-    return callback(new Error("CORS not allowed"))
+     if (!origin) return callback(null, true)
+  const allowed = allowedOrigins.includes(origin)
+  return callback(null, allowed)
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
