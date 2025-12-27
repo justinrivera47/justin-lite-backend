@@ -1,6 +1,6 @@
 import { NotFoundError } from "../errors/NotFoundError"
 import { ValidationError } from "../errors/ValidationError"
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin } from "../lib/supabase"
 import { updateConversationSummary } from "./summaryService"
 
 type MessageRole = "user" | "assistant" | "system"
@@ -9,7 +9,7 @@ export async function getMessagesForConversation(
   conversationId: string,
   userId: string
 ) {
-  // Ownership check via conversation
+  const supabaseAdmin = getSupabaseAdmin()
   const { data: convo } = await supabaseAdmin
     .from("conversations")
     .select("id")
@@ -43,7 +43,7 @@ if (!content || content.trim().length === 0) {
 }
 
 
-  // Ownership check
+  const supabaseAdmin = getSupabaseAdmin()
   const { data: convo } = await supabaseAdmin
     .from("conversations")
     .select("id")

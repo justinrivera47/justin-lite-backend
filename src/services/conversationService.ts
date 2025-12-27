@@ -1,7 +1,9 @@
 import { NotFoundError } from "../errors/NotFoundError"
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin} from "../lib/supabase"
+
 
 export async function createConversation(userId: string, title?: string) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("conversations")
     .insert({
@@ -16,6 +18,7 @@ export async function createConversation(userId: string, title?: string) {
 }
 
 export async function getUserConversations(userId: string) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("conversations")
     .select("*")
@@ -30,6 +33,7 @@ export async function getConversationById(
   conversationId: string,
   userId: string
 ) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
     .from("conversations")
     .select("*")
@@ -48,6 +52,7 @@ export async function deleteConversation(
   conversationId: string,
   userId: string
 ) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { error } = await supabaseAdmin
     .from("conversations")
     .delete()

@@ -1,6 +1,6 @@
 import { NotFoundError } from "../errors/NotFoundError"
 import { openai } from "../lib/openai"
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin } from "../lib/supabase"
 import type { ChatCompletionMessageParam } from "openai/resources/chat"
 
 
@@ -8,6 +8,7 @@ export async function updateConversationSummary(
   conversationId: string,
   userId: string
 ) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("id, summary, summary_count")

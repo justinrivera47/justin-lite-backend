@@ -1,9 +1,10 @@
 import { Request, Response } from "express"
-import { stripe } from "../lib/stripe"
+import { getStripe } from "../lib/stripe"
 import { upsertSubscription } from "../services/subscriptionService"
 import Stripe from "stripe"
 
 export async function stripeWebhookHandler(req: Request, res: Response) {
+  const stripe = getStripe()
   const sig = req.headers["stripe-signature"]
 
   if (!sig) {

@@ -1,8 +1,7 @@
-import express, { Request, Response } from "express"
+import express from "express"
 import cors from "cors"
 import routes from "./routes"
 import { errorHandler } from "./middleware/errorHandler"
-import { getSupabaseAdmin } from "./lib/supabase"
 import { requestLogger } from "./middleware/requestLogger"
 import bodyParser from "body-parser"
 import { stripeWebhookHandler } from "./webhook/stripeWebhook"
@@ -26,8 +25,6 @@ const corsOptions: cors.CorsOptions = {
       "https://chat.selfrevolutions.com",
       "https://www.chat.selfrevolutions.com",
     ]
-
-    // Allow non-browser requests (no Origin header)
     if (!origin) return callback(null, true)
 
     if (allowedOrigins.includes(origin)) return callback(null, true)

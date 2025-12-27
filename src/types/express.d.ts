@@ -1,4 +1,4 @@
-import { User } from "@supabase/supabase-js"
+import "express"
 
 declare global {
   namespace Express {
@@ -6,7 +6,10 @@ declare global {
       user?: {
         id: string
         email?: string
+        [key: string]: any
       }
     }
   }
 }
+
+export {}

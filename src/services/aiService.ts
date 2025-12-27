@@ -1,7 +1,7 @@
 import { AppError } from "../errors/AppError"
 import { NotFoundError } from "../errors/NotFoundError"
 import { openai } from "../lib/openai"
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin } from "../lib/supabase"
 
 type ChatRole = "system" | "user" | "assistant"
 
@@ -9,6 +9,7 @@ export async function generateAssistantResponse(
   conversationId: string,
   userId: string
 ) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("id, system_prompt, summary")

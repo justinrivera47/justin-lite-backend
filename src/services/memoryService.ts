@@ -1,5 +1,5 @@
 import { openai } from "../lib/openai"
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin } from "../lib/supabase"
 import type { ChatCompletionMessageParam } from "openai/resources/chat"
 
 export async function extractUserMemory(
@@ -7,7 +7,7 @@ export async function extractUserMemory(
   summaries: string[]
 ) {
   if (summaries.length === 0) return
-
+  const supabaseAdmin = getSupabaseAdmin()
   const { data: existingMemory } = await supabaseAdmin
     .from("user_context")
     .select("key, value")

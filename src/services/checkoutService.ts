@@ -1,6 +1,8 @@
-import { stripe } from "../lib/stripe"
+import { getStripe } from "../lib/stripe"
 
 export async function createCheckoutSession(userId: string, email: string) {
+  const stripe = getStripe()
+
   const customer = await stripe.customers.create({
     email,
     metadata: { userId },

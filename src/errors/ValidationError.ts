@@ -1,7 +1,10 @@
 import { AppError } from "./AppError"
 
 export class ValidationError extends AppError {
-  constructor(message = "Invalid request") {
-    super(message, 400, "VALIDATION_ERROR")
+  details?: unknown
+
+  constructor(message = "Validation failed", details?: unknown) {
+    super(message, 422, "VALIDATION_ERROR")
+    this.details = details
   }
 }

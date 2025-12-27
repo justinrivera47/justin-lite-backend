@@ -11,15 +11,17 @@ export async function requireActiveSubscription(
     throw new AuthError("Not authenticated")
   }
   const supabaseAdmin = getSupabaseAdmin()
+  const allowed = new Set(["active", "trialing"])
+
   const { data } = await supabaseAdmin
     .from("subscriptions")
     .select("status, current_period_end")
     .eq("user_id", req.user.id)
     .single()
 
-  if (!data || data.status !== "active") {
-    throw new AuthError("Active subscription required")
-  }
+  if (!data || !allowed.has(data.status)) {
+  throw new AuthError("Active subscription required")
+}
 
   next()
 }

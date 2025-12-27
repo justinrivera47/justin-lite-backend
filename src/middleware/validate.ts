@@ -1,18 +1,37 @@
-import { Request, Response, NextFunction } from "express"
-import { ZodSchema } from "zod"
+import type { Request, Response, NextFunction } from "express"
+import type { ZodTypeAny, ZodIssue } from "zod"
+import { ValidationError } from "../errors/ValidationError"
 
-export const validate =
-  (schema: ZodSchema) =>
-  (req: Request, res: Response, next: NextFunction) => {
+function formatZodIssues(issues: readonly ZodIssue[]) {
+  const fieldErrors: Record<string, string[]> = {}
+  const formErrors: string[] = []
+
+  for (const issue of issues) {
+    // Zod path is PropertyKey[] (string | number | symbol)
+    const key = issue.path.length ? issue.path.map(String).join(".") : ""
+
+    if (!key) {
+      formErrors.push(issue.message)
+      continue
+    }
+
+    fieldErrors[key] ??= []
+    fieldErrors[key].push(issue.message)
+  }
+
+  return { formErrors, fieldErrors }
+}
+
+export function validate(schema: ZodTypeAny) {
+  return (req: Request, _res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.body)
 
     if (!result.success) {
-      return res.status(400).json({
-        error: "Invalid request payload",
-        details: result.error.flatten(),
-      })
+      const details = formatZodIssues(result.error.issues)
+      return next(new ValidationError("Validation failed", details))
     }
 
     req.body = result.data
-    next()
+    return next()
   }
+}

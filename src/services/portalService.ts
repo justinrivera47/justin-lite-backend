@@ -1,7 +1,8 @@
-import { stripe } from "../lib/stripe"
+import { getStripe } from "../lib/stripe"
 import { getSupabaseAdmin } from "../lib/supabase"
 
 export async function createPortalSession(userId: string) {
+  const stripe = getStripe()
   const supabaseAdmin = getSupabaseAdmin()
   const { data } = await supabaseAdmin
     .from("subscriptions")
