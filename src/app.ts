@@ -4,8 +4,17 @@ import routes from "./routes"
 import { errorHandler } from "./middleware/errorHandler"
 import { supabaseAdmin } from "./lib/supabase"
 import { requestLogger } from "./middleware/requestLogger"
+import bodyParser from "body-parser"
+import { stripeWebhookHandler } from "./webhook/stripeWebhook"
+
 
 const app = express()
+
+app.post(
+  "/api/webhooks/stripe",
+  bodyParser.raw({ type: "application/json" }),
+  stripeWebhookHandler
+)
 
 app.use(
   cors({

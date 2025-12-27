@@ -1,18 +1,7 @@
-export class AppError extends Error {
-  statusCode: number
-  code: string
-  isOperational: boolean
+import { AppError } from "./AppError"
 
-  constructor(
-    message: string,
-    statusCode = 500,
-    code = "INTERNAL_ERROR"
-  ) {
-    super(message)
-    this.statusCode = statusCode
-    this.code = code
-    this.isOperational = true
-
-    Error.captureStackTrace(this, this.constructor)
+export class AuthError extends AppError {
+  constructor(message = "Unauthorized") {
+    super(message, 401)
   }
 }
