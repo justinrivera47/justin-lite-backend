@@ -22,8 +22,8 @@ app.use(
       const allowedOrigins = [
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://selfrevolutions.com",
-        "https://www.selfrevolutions.com",
+        "https://chat.selfrevolutions.com",
+        "https://www.chat.selfrevolutions.com",
       ]
 
       if (!origin) return callback(null, true)
