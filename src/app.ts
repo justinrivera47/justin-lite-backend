@@ -10,33 +10,40 @@ import { stripeWebhookHandler } from "./webhook/stripeWebhook"
 
 const app = express()
 
+app.set("trust proxy", 1)
+
 app.post(
   "/api/webhooks/stripe",
   bodyParser.raw({ type: "application/json" }),
   stripeWebhookHandler
 )
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://chat.selfrevolutions.com",
-        "https://www.chat.selfrevolutions.com",
-      ]
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://chat.selfrevolutions.com",
+      "https://www.chat.selfrevolutions.com",
+    ]
 
-      if (!origin) return callback(null, true)
+    // Allow non-browser requests (no Origin header)
+    if (!origin) return callback(null, true)
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true)
-      }
+    if (allowedOrigins.includes(origin)) return callback(null, true)
 
-      return callback(new Error("CORS not allowed"))
-    },
-    credentials: true,
-  })
-)
+    return callback(new Error("CORS not allowed"))
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+  optionsSuccessStatus: 204,
+}
+
+app.use(cors(corsOptions))
+
+app.options(/.*/, cors(corsOptions))
+
 
 app.use(express.json({ limit: "1mb" }))
 

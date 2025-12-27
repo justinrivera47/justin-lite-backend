@@ -11,9 +11,6 @@ import {
   createMessage,
 } from "../services/messageService"
 import { generateAssistantResponse } from "../services/aiService"
-import { extractUserMemory } from "../services/memoryService"
-import { updateConversationSummary } from "../services/summaryService"
-import { supabaseAdmin } from "../lib/supabase"
 import { validate } from "../middleware/validate"
 import { createConversationSchema } from "../validation/conversationSchemas"
 import { createMessageSchema, respondSchema } from "../validation/messageSchemas"
@@ -113,55 +110,30 @@ router.post(
   requireAuth,
   aiRateLimiter,
   validate(respondSchema),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const conversationId = req.params.id
       const userId = req.user!.id
+      const content: string = req.body.content
 
-      const assistantMessage =
-        await generateAssistantResponse(conversationId, userId)
+      const userMessage = await createMessage(
+        conversationId,
+        userId,
+        "user",
+        content
+      )
 
-      const MESSAGE_THRESHOLD = 6
-      const { count } = await supabaseAdmin
-        .from("messages")
-        .select("*", { count: "exact", head: true })
-        .eq("conversation_id", conversationId)
+      const assistantMessage = await generateAssistantResponse(
+        conversationId,
+        userId
+      )
 
-      if (count && count % MESSAGE_THRESHOLD === 0) {
-        await updateConversationSummary(conversationId, userId)
-      }
-
-      const REFLECTION_THRESHOLD = 3
-      const { data: convo } = await supabaseAdmin
-        .from("conversations")
-        .select("summary_count, user_id")
-        .eq("id", conversationId)
-        .single()
-
-      if (
-        convo &&
-        convo.summary_count > 0 &&
-        convo.summary_count % REFLECTION_THRESHOLD === 0
-      ) {
-        const { data: summaries } = await supabaseAdmin
-          .from("conversations")
-          .select("summary")
-          .eq("user_id", convo.user_id)
-          .order("updated_at", { ascending: false })
-          .limit(REFLECTION_THRESHOLD)
-
-        await extractUserMemory(
-          convo.user_id,
-          summaries?.map(s => s.summary).filter(Boolean) ?? []
-        )
-      }
-
-      res.status(201).json(assistantMessage)
-    } catch (err: any) {
-      console.error("[respond]", err)
-      res.status(400).json({ error: err.message })
+      return res.status(201).json({ userMessage, assistantMessage })
+    } catch (err) {
+      return next(err)
     }
   }
 )
+
 
 export default router

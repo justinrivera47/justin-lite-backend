@@ -5,5 +5,6 @@ export const createMessageSchema = z.object({
 })
 
 export const respondSchema = z.object({
-  // no body required now, but keeps contract explicit
+  content: z.string().trim().min(1, "Message cannot be empty").max(4000, "Message too long"),
 })
+
