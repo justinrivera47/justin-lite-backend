@@ -18,6 +18,7 @@ import { validate } from "../middleware/validate"
 import { createConversationSchema } from "../validation/conversationSchemas"
 import { createMessageSchema, respondSchema } from "../validation/messageSchemas"
 import { aiRateLimiter, readRateLimiter, writeRateLimiter } from "../middleware/rateLimit"
+import billingRoutes from "./billing"
 
 const router = Router()
 
@@ -36,6 +37,9 @@ router.post("/conversations",
     res.status(400).json({ error: err.message })
   }
 })
+
+router.use("/billing", billingRoutes)
+
 
 router.get("/conversations", 
   requireAuth, 
