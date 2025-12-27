@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin } from "../lib/supabase"
 
 type PersistSubscriptionArgs = {
   userId: string
@@ -17,6 +17,7 @@ export async function upsertSubscription({
   currentPeriodEnd,
   planCode,
 }: PersistSubscriptionArgs) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { error } = await supabaseAdmin
     .from("subscriptions")
     .upsert({

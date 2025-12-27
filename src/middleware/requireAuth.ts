@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express"
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin } from "../lib/supabase"
 
 export async function requireAuth(
   req: Request,
@@ -15,6 +15,7 @@ export async function requireAuth(
 
     const token = authHeader.replace("Bearer ", "").trim()
 
+    const supabaseAdmin = getSupabaseAdmin()
     const { data, error } = await supabaseAdmin.auth.getUser(token)
 
     if (error || !data.user) {

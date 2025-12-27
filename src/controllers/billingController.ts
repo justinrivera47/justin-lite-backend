@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin } from "../lib/supabase"
 import { createCheckoutSession } from "../services/chechoutService"
 import { createPortalSession } from "../services/portalService"
 
@@ -33,7 +33,7 @@ export async function getSubscriptionStatus(
   res: Response
 ) {
   const userId = req.user!.id
-
+  const supabaseAdmin = getSupabaseAdmin()
   const { data } = await supabaseAdmin
     .from("subscriptions")
     .select("status, current_period_end")

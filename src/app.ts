@@ -2,7 +2,7 @@ import express, { Request, Response } from "express"
 import cors from "cors"
 import routes from "./routes"
 import { errorHandler } from "./middleware/errorHandler"
-import { supabaseAdmin } from "./lib/supabase"
+import { getSupabaseAdmin } from "./lib/supabase"
 import { requestLogger } from "./middleware/requestLogger"
 import bodyParser from "body-parser"
 import { stripeWebhookHandler } from "./webhook/stripeWebhook"
@@ -51,18 +51,23 @@ app.use(requestLogger)
 
 app.use("/api", routes)
 
-app.get("/api/health", async (_req: Request, res: Response) => {
-  let dbStatus = "unknown"
+app.get("/api/health", async (_req, res) => {
+  const hasSupabaseEnv =
+    !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  try {
-    const { error } = await supabaseAdmin
-      .from("conversations")
-      .select("id")
-      .limit(1)
+  let dbStatus: "ok" | "error" | "missing" | "unknown" =
+  hasSupabaseEnv ? "unknown" : "missing"
 
-    dbStatus = error ? "error" : "ok"
-  } catch {
-    dbStatus = "error"
+
+  if (hasSupabaseEnv) {
+    try {
+      const { getSupabaseAdmin } = await import("./lib/supabase")
+      const supabaseAdmin = getSupabaseAdmin()
+      const { error } = await supabaseAdmin.from("conversations").select("id").limit(1)
+      dbStatus = error ? "error" : "ok"
+    } catch {
+      dbStatus = "error"
+    }
   }
 
   res.status(200).json({
@@ -76,6 +81,7 @@ app.get("/api/health", async (_req: Request, res: Response) => {
     },
   })
 })
+
 
 app.use(errorHandler)
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express"
-import { supabaseAdmin } from "../lib/supabase"
+import { getSupabaseAdmin } from "../lib/supabase"
 import { AuthError } from "../errors/AuthError"
 
 export async function requireActiveSubscription(
@@ -10,7 +10,7 @@ export async function requireActiveSubscription(
   if (!req.user) {
     throw new AuthError("Not authenticated")
   }
-
+  const supabaseAdmin = getSupabaseAdmin()
   const { data } = await supabaseAdmin
     .from("subscriptions")
     .select("status, current_period_end")
