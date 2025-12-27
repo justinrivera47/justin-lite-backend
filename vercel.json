@@ -5,8 +5,5 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/src/index.ts" }
-  ],
-  "env": {
-    "ENVIRONMENT": "production"
-  }
+  ]
 }

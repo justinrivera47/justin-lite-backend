@@ -44,7 +44,7 @@ app.use(requestLogger)
 
 app.use("/api", routes)
 
-app.get("/health", async (_req: Request, res: Response) => {
+app.get("/api/health", async (_req: Request, res: Response) => {
   let dbStatus = "unknown"
 
   try {
