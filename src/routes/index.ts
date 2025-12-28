@@ -11,8 +11,11 @@ import { generateAssistantResponse } from "../services/aiService"
 import { getSupabaseAdmin } from "../lib/supabase"
 import { updateConversationSummary } from "../services/summaryService"
 import { extractUserMemory } from "../services/memoryService"
+import billingRoutes from "./billing"
 
 const router = Router()
+
+router.use("/billing", billingRoutes)
 
 router.post(
   "/conversations/:id/respond",
