@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
 import { getSupabaseAdmin } from "../lib/supabase"
-import { createCheckoutSession } from "../services/chechoutService"
+import { createCheckoutSession } from "../services/checkoutService"
 import { createPortalSession } from "../services/portalService"
 
 export async function startPortalSession(
