@@ -9,6 +9,8 @@ import { stripeWebhookHandler } from "./webhook/stripeWebhook"
 
 const app = express()
 
+app.set("etag", false)
+
 app.set("trust proxy", 1)
 
 app.post(

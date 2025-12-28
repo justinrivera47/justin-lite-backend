@@ -51,12 +51,14 @@ if (!session.subscription || !session.customer) {
     stripeSubscriptionId: subscription.id,
     status: subscription.status,
     currentPeriodEnd: (subscription as any).current_period_end ?? null,
-    planCode: subscription.items.data[0]?.price?.id,
+    stripePriceId: subscription.items.data[0]?.price?.id ?? null,
+    planCode: "pro_15",
   })
 
   break
     }
 
+    case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const subscription = event.data.object as any
@@ -76,8 +78,9 @@ const customer = await stripe.customers.retrieve(
     stripeCustomerId: customer.id,
     stripeSubscriptionId: subscription.id,
     status: subscription.status,
-    currentPeriodEnd: subscription.current_period_end,
-    planCode: subscription.items.data[0]?.price?.id,
+    currentPeriodEnd: subscription.current_period_end ?? null,
+    stripePriceId: subscription.items.data[0]?.price?.id ?? null,
+    planCode: "pro_15",
   })
       break
     }

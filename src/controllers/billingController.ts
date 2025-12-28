@@ -38,10 +38,12 @@ export async function getSubscriptionStatus(
     .from("subscriptions")
     .select("status, current_period_end")
     .eq("user_id", userId)
-    .single()
+    .maybeSingle()
 
   const active = data?.status === "active"
 
+  res.setHeader("Cache-Control", "no-store")
+  res.setHeader("Pragma", "no-cache")
   res.status(200).json({
     active,
     status: data?.status ?? "none",

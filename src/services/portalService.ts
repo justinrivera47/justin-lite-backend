@@ -8,7 +8,7 @@ export async function createPortalSession(userId: string) {
     .from("subscriptions")
     .select("stripe_customer_id")
     .eq("user_id", userId)
-    .single()
+    .maybeSingle()
 
   if (!data?.stripe_customer_id) {
     throw new Error("No Stripe customer found")
