@@ -1,6 +1,6 @@
 import express from "express"
 import cors from "cors"
-import routes from "./routes"
+import routes from "./routes/index"
 import { errorHandler } from "./middleware/errorHandler"
 import { requestLogger } from "./middleware/requestLogger"
 import bodyParser from "body-parser"
@@ -27,9 +27,9 @@ const corsOptions: cors.CorsOptions = {
       "https://chat.selfrevolutions.com",
       "https://www.chat.selfrevolutions.com",
     ]
-     if (!origin) return callback(null, true)
-  const allowed = allowedOrigins.includes(origin)
-  return callback(null, allowed)
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+    return callback(new Error("CORS not allowed"))
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
