@@ -10,6 +10,7 @@ import {
   getUserConversations,
   getConversationById,
   deleteConversation,
+  updateConversationTitle
 } from "../services/conversationService"
 
 import { getMessagesForConversation, createMessage } from "../services/messageService"
@@ -17,6 +18,8 @@ import { generateAssistantResponse } from "../services/aiService"
 
 import { createConversationSchema } from "../validation/conversationSchemas"
 import { createMessageSchema, respondSchema } from "../validation/messageSchemas"
+
+import { z } from "zod"
 
 const router = Router()
 
@@ -31,6 +34,30 @@ router.get("/conversations", requireAuth, readRateLimiter, async (req, res, next
     next(err)
   }
 })
+
+const updateTitleSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+})
+
+router.patch(
+  "/conversations/:id",
+  requireAuth,
+  validate(updateTitleSchema),
+  async (req, res, next) => {
+    try {
+      const updated = await updateConversationTitle(
+        req.params.id,
+        req.user!.id,
+        req.body.title
+      )
+      res.json(updated)
+    } catch (e) {
+      next(e)
+    }
+  }
+)
+
+
 
 router.post(
   "/conversations",

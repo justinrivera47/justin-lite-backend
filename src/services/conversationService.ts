@@ -17,6 +17,33 @@ export async function createConversation(userId: string, title?: string) {
   return data
 }
 
+export async function updateConversationTitle(
+  conversationId: string,
+  userId: string,
+  title: string
+) {
+  const supabaseAdmin = getSupabaseAdmin()
+
+  const cleanTitle = title.trim()
+  if (!cleanTitle) {
+    throw new Error("Title cannot be empty")
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("conversations")
+    .update({ title: cleanTitle })
+    .eq("id", conversationId)
+    .eq("user_id", userId)
+    .select()
+    .single()
+
+  if (error || !data) {
+    throw new NotFoundError("Conversation not found")
+  }
+
+  return data
+}
+
 export async function getUserConversations(userId: string) {
   const supabaseAdmin = getSupabaseAdmin()
   const { data, error } = await supabaseAdmin
