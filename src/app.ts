@@ -6,18 +6,10 @@ import { requestLogger } from "./middleware/requestLogger"
 import bodyParser from "body-parser"
 import { stripeWebhookHandler } from "./webhook/stripeWebhook"
 
-
 const app = express()
 
 app.set("etag", false)
-
 app.set("trust proxy", 1)
-
-app.post(
-  "/api/webhooks/stripe",
-  bodyParser.raw({ type: "application/json" }),
-  stripeWebhookHandler
-)
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
@@ -29,7 +21,7 @@ const corsOptions: cors.CorsOptions = {
     ]
     if (!origin) return callback(null, true)
     if (allowedOrigins.includes(origin)) return callback(null, true)
-    return callback(new Error("CORS not allowed"))
+    return callback(null, false)
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -41,6 +33,11 @@ app.use(cors(corsOptions))
 
 app.options(/.*/, cors(corsOptions))
 
+app.post(
+  "/api/webhooks/stripe",
+  bodyParser.raw({ type: "application/json" }),
+  stripeWebhookHandler
+)
 
 app.use(express.json({ limit: "1mb" }))
 
