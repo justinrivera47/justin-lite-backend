@@ -17,15 +17,17 @@ export async function extractUserMemory(
     {
       role: "system",
       content: `
-You extract long-term user memory.
+        You extract long-term user memory.
 
-Rules:
-- Only extract stable truths likely to remain valid over time.
-- Do NOT extract moods, emotions, or temporary states.
-- Do NOT repeat existing memory unless meaningfully changed.
-- Use short, factual statements.
-- Output valid JSON only.
-`,
+        Rules:
+        - Only extract stable truths likely to remain valid over time.
+        - Only extract facts or beliefs the user explicitly stated about themselves; do not infer traits, values, or identity.
+        - Do NOT interpret, summarize growth, or frame experiences; record only what the user directly concluded.
+        - Do NOT extract moods, emotions, or temporary states.
+        - Do NOT repeat existing memory unless meaningfully changed.
+        - Use short, factual statements.
+        - Output valid JSON only.
+        `,
     },
     {
       role: "user",
