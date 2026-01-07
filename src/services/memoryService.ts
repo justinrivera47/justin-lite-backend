@@ -8,8 +8,9 @@ export async function extractUserMemory(
 ) {
   if (summaries.length === 0) return
   const supabaseAdmin = getSupabaseAdmin()
+  
   const { data: existingMemory } = await supabaseAdmin
-    .from("user_context")
+    .from("user_memories")
     .select("key, value")
     .eq("user_id", userId)
 
@@ -18,25 +19,20 @@ export async function extractUserMemory(
       role: "system",
       content: `
         You extract long-term user memory.
-
+        Output format must be: {"memories": [{"key": "...", "value": "..."}]}
+        
         Rules:
         - Only extract stable truths likely to remain valid over time.
-        - Only extract facts or beliefs the user explicitly stated about themselves; do not infer traits, values, or identity.
-        - Do NOT interpret, summarize growth, or frame experiences; record only what the user directly concluded.
-        - Do NOT extract moods, emotions, or temporary states.
-        - Do NOT repeat existing memory unless meaningfully changed.
+        - Only extract facts/beliefs explicitly stated by the user.
+        - Do NOT interpret or summarize.
         - Use short, factual statements.
-        - Output valid JSON only.
         `,
     },
     {
       role: "user",
       content: `
-Existing memory:
-${JSON.stringify(existingMemory ?? [], null, 2)}
-
-Conversation summaries:
-${summaries.join("\n\n")}
+Existing memory: ${JSON.stringify(existingMemory ?? [])}
+Recent Summaries: ${summaries.join("\n\n")}
 `,
     },
   ]
@@ -45,39 +41,25 @@ ${summaries.join("\n\n")}
     model: process.env.OPENAI_MODEL!,
     messages: memoryPrompt,
     temperature: 0.1,
+    response_format: { type: "json_object" }
   })
 
   const raw = completion.choices[0]?.message?.content
   if (!raw) return
 
-  let parsed
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    return
-  }
-
+  const parsed = JSON.parse(raw)
   if (!Array.isArray(parsed.memories)) return
 
   for (const mem of parsed.memories) {
     if (!mem.key || !mem.value) continue
 
-    const existing = existingMemory?.find(
-      (m) => m.key === mem.key
-    )
-
-    if (!existing) {
-      await supabaseAdmin.from("user_context").insert({
-        user_id: userId,
-        key: mem.key,
-        value: mem.value,
-      })
-    } else if (existing.value !== mem.value) {
-      await supabaseAdmin
-        .from("user_context")
-        .update({ value: mem.value })
-        .eq("user_id", userId)
-        .eq("key", mem.key)
-    }
+    const { error } = await supabaseAdmin
+      .from("user_memories")
+      .upsert(
+        { user_id: userId, key: mem.key, value: mem.value },
+        { onConflict: 'user_id, key' }
+      )
+      
+    if (error) console.error("Memory Upsert Error:", error)
   }
 }
