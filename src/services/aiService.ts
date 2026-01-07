@@ -42,8 +42,8 @@ export async function generateAssistantResponse(conversationId: string, userId: 
   const prompt: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
 
   // 3. System Prompt Construction
-  const basePrompt = process.env.SYSTEM_PROMPT || "You are Justin Lite. Create space. Subtract noise."
-  prompt.push({ role: "system", content: basePrompt })
+  const basePrompt = (process.env.SYSTEM_PROMPT || "You are Justin Lite.") + " Respond in JSON format with a 'content' field.";
+  prompt.push({ role: "system", content: basePrompt });
 
   // Inject Stable Truths as Constraints
   if (memories?.length) {
@@ -67,19 +67,30 @@ export async function generateAssistantResponse(conversationId: string, userId: 
   const completion = await openai.chat.completions.create({
     model: process.env.OPENAI_MODEL!,
     messages: prompt,
-    temperature: 0.3, // Lowered for more discipline
+    temperature: 0.3,
     response_format: { type: "json_object" }
-  })
+  });
 
-  const rawOutput = completion.choices[0]?.message?.content || ""
-  const content = cleanContent(rawOutput)
+  const rawOutput = completion.choices[0]?.message?.content || "{}";
+  try {
+    const parsed = JSON.parse(rawOutput);
+    const content = parsed.content || ""; // Extract just the text
 
-  // 6. Persist Response
-  const { data: savedMessage, error } = await supabaseAdmin
-    .from("messages")
-    .insert({ conversation_id: conversationId, role: "assistant", content })
-    .select().single()
+    // 6. Persist Response
+    const { data: savedMessage, error } = await supabaseAdmin
+      .from("messages")
+      .insert({ 
+        conversation_id: conversationId, 
+        role: "assistant", 
+        content: content, // Save the actual text, not the JSON string
+        user_id: userId   // Make sure to include userId for RLS!
+      })
+        .select().single();
 
-  if (error) throw error
-  return savedMessage
+      if (error) throw error;
+      return savedMessage;
+    } catch (e) {
+      console.error("JSON Parsing Error:", rawOutput);
+      throw new Error("AI failed to return valid JSON");
+  }
 }
