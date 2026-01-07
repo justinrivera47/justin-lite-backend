@@ -101,7 +101,7 @@ Messages represent individual conversational turns.
 
 ---
 
-### `user_context`
+### `user_memories`
 
 This table stores **extracted memory**, not raw history.
 
@@ -157,5 +157,5 @@ users
         └── messages (1:N)
 
 users
-  └── user_context (1:N)
+  └── user_memories (1:N)
 ```

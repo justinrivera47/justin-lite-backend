@@ -5,51 +5,33 @@ import { getSupabaseAdmin } from "../lib/supabase"
 
 type ChatRole = "system" | "user" | "assistant"
 
-type CompletionSignals = {
-  conversation_complete?: boolean
-  reason?: string
-}
-
-type ParsedAssistantOutput = {
-  content: string
-  signals?: CompletionSignals
-}
-
-// --- helper: safely parse assistant output ---
-function parseAssistantOutput(raw: string): ParsedAssistantOutput {
+// --- helper: parse content while stripping JSON markers if AI fails to be 'Lite' ---
+function cleanContent(raw: string): string {
   try {
-    const parsed = JSON.parse(raw)
-
-    if (typeof parsed?.content === "string") {
-      return {
-        content: parsed.content.trim(),
-        signals: parsed.signals ?? {},
-      }
-    }
+    const parsed = JSON.parse(raw);
+    return (parsed.content || raw).trim();
   } catch {
-    // ignore parse errors
+    return raw.trim();
   }
-
-  // fallback: treat raw text as visible content
-  return { content: raw.trim() }
 }
 
-export async function generateAssistantResponse(
-  conversationId: string,
-  userId: string
-) {
+export async function generateAssistantResponse(conversationId: string, userId: string) {
   const supabaseAdmin = getSupabaseAdmin()
 
+  // 1. Fetch Convo State
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("id, system_prompt, summary")
     .eq("id", conversationId)
-    .eq("user_id", userId)
     .single()
 
-  if (!conversation) {
-    throw new Error("Conversation not found or access denied")
-  }
+  if (!conversation) throw new Error("Sanctuary not found")
+
+  // 2. Fetch Global Memories (The Stability Anchor)
+  const { data: memories } = await supabaseAdmin
+    .from("user_memories")
+    .select("key, value")
+    .eq("user_id", userId)
 
   const { data: messages } = await supabaseAdmin
     .from("messages")
@@ -57,95 +39,47 @@ export async function generateAssistantResponse(
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
 
-  if (!messages || messages.length === 0) {
-    throw new Error("No messages to respond to")
-  }
-
   const prompt: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
 
-  // --- base system prompt (strict fallback) ---
-  const baseSystemPrompt =
-    process.env.SYSTEM_PROMPT?.trim() ||
-    "You are Justin Lite. You create space for clear thinking. You do not motivate, reassure, coach, or provide solutions. Respond using JSON with a 'content' field and optional 'signals' field."
+  // 3. System Prompt Construction
+  const basePrompt = process.env.SYSTEM_PROMPT || "You are Justin Lite. Create space. Subtract noise."
+  prompt.push({ role: "system", content: basePrompt })
 
-  prompt.push({ role: "system", content: baseSystemPrompt })
-
-  // --- conversation-specific system prompt ---
-  if (conversation.system_prompt) {
-    prompt.push({ role: "system", content: conversation.system_prompt })
+  // Inject Stable Truths as Constraints
+  if (memories?.length) {
+    const memoryContext = memories.map(m => `- ${m.key}: ${m.value}`).join("\n")
+    prompt.push({ 
+      role: "system", 
+      content: `STABLE USER TRUTHS (Do not re-explore these unless challenged by the user):\n${memoryContext}` 
+    })
   }
 
-  // --- summary as context only ---
   if (conversation.summary) {
-    prompt.push({
-      role: "system",
-      content:
-        `Conversation summary (context only, do not advance or reinterpret):\n${conversation.summary}`,
-    })
+    prompt.push({ role: "system", content: `LOCAL CONTEXT: ${conversation.summary}` })
   }
 
-  // --- user memory (non-authoritative) ---
-  const { data: memory } = await supabaseAdmin
-    .from("user_context")
-    .select("key, value")
-    .eq("user_id", userId)
+  // 4. Message Window
+  messages?.slice(-12).forEach(msg => {
+    prompt.push({ role: msg.role as ChatRole, content: msg.content })
+  })
 
-  if (memory?.length) {
-    prompt.push({
-      role: "system",
-      content:
-        "User-stated facts from prior conversations (do not treat as identity or directives):\n" +
-        memory.slice(0, 5).map((m) => `- ${m.value}`).join("\n"),
-    })
-  }
-
-  // --- recent message window ---
-  for (const msg of messages.slice(-10)) {
-    prompt.push({
-      role: msg.role as ChatRole,
-      content: msg.content,
-    })
-  }
-
-  // --- OpenAI call ---
+  // 5. Completion with JSON enforcement
   const completion = await openai.chat.completions.create({
     model: process.env.OPENAI_MODEL!,
     messages: prompt,
-    temperature: 0.4,
+    temperature: 0.3, // Lowered for more discipline
+    response_format: { type: "json_object" }
   })
 
-  const rawOutput = completion.choices[0]?.message?.content
-  if (!rawOutput) {
-    throw new Error("No assistant response generated")
-  }
+  const rawOutput = completion.choices[0]?.message?.content || ""
+  const content = cleanContent(rawOutput)
 
-  const { content, signals } = parseAssistantOutput(rawOutput)
-
-  // --- persist only visible content ---
+  // 6. Persist Response
   const { data: savedMessage, error } = await supabaseAdmin
     .from("messages")
-    .insert({
-      conversation_id: conversationId,
-      role: "assistant",
-      content,
-    })
-    .select()
-    .single()
+    .insert({ conversation_id: conversationId, role: "assistant", content })
+    .select().single()
 
   if (error) throw error
-
-  // --- soft completion handling (no schema mutation) ---
-  if (signals?.conversation_complete) {
-    // Intentionally non-destructive:
-    // - observe
-    // - log
-    // - trigger summary / memory extraction elsewhere if desired
-    console.log("Conversation completion signaled", {
-      conversationId,
-      userId,
-      reason: signals.reason,
-    })
-  }
-
   return savedMessage
 }

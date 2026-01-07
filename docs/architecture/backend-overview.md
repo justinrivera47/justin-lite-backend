@@ -134,7 +134,7 @@ Core tables:
 
   - `id`, `conversation_id`, `role`, `content`, `has_attachments`, timestamps
 
-- **user_context**
+- **user_memories**
 
   - `user_id`, `key` (optional), `value` (memory entry), timestamps
 
@@ -175,7 +175,7 @@ The assistant response is then persisted as a message in the same conversation.
 ### Memory Extraction
 
 - Triggered only after enough summaries exist and reflection thresholds are met
-- Stores conservative, limited, pattern-based memory into `user_context`
+- Stores conservative, limited, pattern-based memory into `user_memories`
 - Memory supports reflection; it is not used for identity inference or profiling
 
 ---

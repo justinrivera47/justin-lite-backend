@@ -200,7 +200,7 @@ If enough summaries exist and reflection thresholds are met:
 
 - The memory extraction service runs
 - Pattern-based memory is extracted
-- Entries are written to `user_context`
+- Entries are written to `user_memories`
 
 Memory extraction is conservative and capped.
 

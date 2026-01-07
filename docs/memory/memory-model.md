@@ -70,7 +70,7 @@ Examples (conceptual):
 - consistent concerns
 - stable preferences in expression
 
-This data is stored in the `user_context` table and intentionally capped.
+This data is stored in the `user_memories` table and intentionally capped.
 
 ---
 
