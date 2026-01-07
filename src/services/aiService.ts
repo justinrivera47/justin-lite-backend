@@ -1,96 +1,75 @@
-// src/services/aiService.ts
-import OpenAI from "openai"
-import { openai } from "../lib/openai"
-import { getSupabaseAdmin } from "../lib/supabase"
+import OpenAI from "openai";
+import { openai } from "../lib/openai";
+import { getSupabaseAdmin } from "../lib/supabase";
 
-type ChatRole = "system" | "user" | "assistant"
-
-// --- helper: parse content while stripping JSON markers if AI fails to be 'Lite' ---
-function cleanContent(raw: string): string {
-  try {
-    const parsed = JSON.parse(raw);
-    return (parsed.content || raw).trim();
-  } catch {
-    return raw.trim();
-  }
-}
+type ChatRole = "system" | "user" | "assistant";
 
 export async function generateAssistantResponse(conversationId: string, userId: string) {
-  const supabaseAdmin = getSupabaseAdmin()
+  const supabaseAdmin = getSupabaseAdmin();
 
-  // 1. Fetch Convo State
-  const { data: conversation } = await supabaseAdmin
-    .from("conversations")
-    .select("id, system_prompt, summary")
-    .eq("id", conversationId)
-    .single()
+  const [convoRes, memoryRes, messageRes] = await Promise.all([
+    supabaseAdmin.from("conversations").select("id, system_prompt, summary").eq("id", conversationId).single(),
+    supabaseAdmin.from("user_memories").select("key, value").eq("user_id", userId),
+    supabaseAdmin.from("messages").select("role, content").eq("conversation_id", conversationId).order("created_at", { ascending: true })
+  ]);
 
-  if (!conversation) throw new Error("Sanctuary not found")
+  if (convoRes.error || !convoRes.data) throw new Error("Sanctuary not found");
+  
+  const conversation = convoRes.data;
+  const memories = memoryRes.data || [];
+  const messages = messageRes.data || [];
 
-  // 2. Fetch Global Memories (The Stability Anchor)
-  const { data: memories } = await supabaseAdmin
-    .from("user_memories")
-    .select("key, value")
-    .eq("user_id", userId)
-
-  const { data: messages } = await supabaseAdmin
-    .from("messages")
-    .select("role, content")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
-
-  const prompt: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
-
-  // 3. System Prompt Construction
-  const basePrompt = (process.env.SYSTEM_PROMPT || "You are Justin Lite.") + " Respond in JSON format with a 'content' field.";
+  const prompt: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+  
+  const basePrompt = (process.env.SYSTEM_PROMPT || "You are Justin Lite.") + " Respond in JSON with a 'content' field.";
   prompt.push({ role: "system", content: basePrompt });
 
-  // Inject Stable Truths as Constraints
-  if (memories?.length) {
-    const memoryContext = memories.map(m => `- ${m.key}: ${m.value}`).join("\n")
+  if (memories.length) {
+    const memoryContext = memories.map(m => `- ${m.key}: ${m.value}`).join("\n");
     prompt.push({ 
       role: "system", 
-      content: `STABLE USER TRUTHS (Do not re-explore these unless challenged by the user):\n${memoryContext}` 
-    })
+      content: `STABLE USER TRUTHS:\n${memoryContext}` 
+    });
   }
 
   if (conversation.summary) {
-    prompt.push({ role: "system", content: `LOCAL CONTEXT: ${conversation.summary}` })
+    prompt.push({ role: "system", content: `LOCAL CONTEXT: ${conversation.summary}` });
   }
 
-  // 4. Message Window
-  messages?.slice(-12).forEach(msg => {
-    prompt.push({ role: msg.role as ChatRole, content: msg.content })
-  })
+  messages.slice(-12).forEach(msg => {
+    prompt.push({ role: msg.role as ChatRole, content: msg.content });
+  });
 
-  // 5. Completion with JSON enforcement
   const completion = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL!,
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages: prompt,
     temperature: 0.3,
     response_format: { type: "json_object" }
   });
 
   const rawOutput = completion.choices[0]?.message?.content || "{}";
+
   try {
     const parsed = JSON.parse(rawOutput);
-    const content = parsed.content || ""; // Extract just the text
+    const finalContent = parsed.content?.trim() || "..."; 
 
-    // 6. Persist Response
-    const { data: savedMessage, error } = await supabaseAdmin
+    const { data: savedMessage, error: saveError } = await supabaseAdmin
       .from("messages")
       .insert({ 
         conversation_id: conversationId, 
         role: "assistant", 
-        content: content, // Save the actual text, not the JSON string
-        user_id: userId   // Make sure to include userId for RLS!
+        content: finalContent,
       })
-        .select().single();
+      .select()
+      .single();
 
-      if (error) throw error;
-      return savedMessage;
-    } catch (e) {
-      console.error("JSON Parsing Error:", rawOutput);
-      throw new Error("AI failed to return valid JSON");
+    if (saveError) throw saveError;
+
+    
+    return savedMessage;
+
+  } catch (e) {
+    console.error("🔥 AI SERVICE ERROR:", e, "Raw:", rawOutput);
+    throw new Error("The sanctuary is quiet. Please try again.");
   }
 }
