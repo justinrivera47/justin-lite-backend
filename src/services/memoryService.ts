@@ -15,19 +15,17 @@ export async function extractUserMemory(
     .eq("user_id", userId)
 
   const memoryPrompt: ChatCompletionMessageParam[] = [
-    {
-      role: "system",
-      content: `
-        You extract long-term user memory.
-        Output format must be: {"memories": [{"key": "...", "value": "..."}]}
-        
-        Rules:
-        - Only extract stable truths likely to remain valid over time.
-        - Only extract facts/beliefs explicitly stated by the user.
-        - Do NOT interpret or summarize.
-        - Use short, factual statements.
-        `,
-    },
+  {
+    role: "system",
+    content: `
+      You extract long-term user memory into a JSON format.
+      Output must be a valid JSON object: {"memories": [{"key": "...", "value": "..."}]}
+      
+      Rules:
+      - Only extract stable truths likely to remain valid over time.
+      - Output strictly in JSON.
+      `,
+  },
     {
       role: "user",
       content: `

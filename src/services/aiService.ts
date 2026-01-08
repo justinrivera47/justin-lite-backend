@@ -41,8 +41,8 @@ export async function generateAssistantResponse(conversationId: string, userId: 
 
   const prompt: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
 
-  // 3. System Prompt Construction
-  const basePrompt = (process.env.SYSTEM_PROMPT || "You are Justin Lite.") + " Respond in JSON format with a 'content' field.";
+  const basePrompt = (process.env.SYSTEM_PROMPT || "You are Justin Lite.") + 
+                     " Important: You must respond in a valid JSON format with a 'content' field.";
   prompt.push({ role: "system", content: basePrompt });
 
   // Inject Stable Truths as Constraints
@@ -64,12 +64,11 @@ export async function generateAssistantResponse(conversationId: string, userId: 
   })
 
   // 5. Completion with JSON enforcement
-   const completion = await openai.chat.completions.create({
-    // FALLBACK: Ensuring the model isn't undefined
-    model: process.env.OPENAI_MODEL || "gpt-4o-mini", 
+  const completion = await openai.chat.completions.create({
+    model: process.env.OPENAI_MODEL || "gpt-4o", // or your preferred model
     messages: prompt,
     temperature: 0.3,
-    response_format: { type: "json_object" }
+    response_format: { type: "json_object" } 
   });
 
   const rawOutput = completion.choices[0]?.message?.content || "{}";
@@ -77,30 +76,30 @@ export async function generateAssistantResponse(conversationId: string, userId: 
 
   try {
     const parsed = JSON.parse(rawOutput);
-    
-    // Check for 'content' OR 'message' or any text field the AI might have hallucinated
     const extractedText = parsed.content || parsed.message || parsed.text;
-    
-    const finalContent = (extractedText && extractedText.trim()) 
-      ? extractedText.trim() 
-      : "..."; 
+    const finalContent = (extractedText && extractedText.trim()) ? extractedText.trim() : "..."; 
 
-const { data: savedMessage, error: insertError } = await supabaseAdmin
-  .from("messages")
-  .insert({ 
-    conversation_id: conversationId, 
-    role: "assistant", 
-    content: finalContent 
-  })
-  .select()
-  .single();
+    // 6. Persist Response
+    const { data: savedMessage, error: insertError } = await supabaseAdmin
+      .from("messages")
+      .insert({ 
+        conversation_id: conversationId, 
+        role: "assistant", 
+        content: finalContent 
+        // Note: No user_id here, as confirmed by your schema
+      })
+      .select()
+      .single();
 
-if (insertError) {
-  console.error("❌ DATABASE INSERT FAIL:", insertError);
-  throw insertError;
-}} catch (e) {
+    if (insertError) {
+      console.error("❌ DATABASE INSERT FAIL:", insertError);
+      throw insertError;
+    }
+
+    return savedMessage; // Ensure this is returned!
+
+  } catch (e) {
     console.error("🔥 AI RESPONSE CRASH. Raw Output:", rawOutput);
-    // Return a structured object so the UI knows how to handle the silence
     return {
       role: "assistant",
       content: "The sanctuary is quiet. My thoughts are still forming.",
