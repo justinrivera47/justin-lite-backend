@@ -64,46 +64,55 @@ export async function generateAssistantResponse(conversationId: string, userId: 
   })
 
   // 5. Completion with JSON enforcement
-    const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL!,
-      messages: prompt,
-      temperature: 0.3,
-      response_format: { type: "json_object" }
-    });
+   const completion = await openai.chat.completions.create({
+    // FALLBACK: Ensuring the model isn't undefined
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini", 
+    messages: prompt,
+    temperature: 0.3,
+    response_format: { type: "json_object" }
+  });
 
-    const rawOutput = completion.choices[0]?.message?.content || "{}";
+  const rawOutput = completion.choices[0]?.message?.content || "{}";
+  console.log("DEBUG: AI raw output:", rawOutput); // Check your logs for this!
 
-    try {
-      const parsed = JSON.parse(rawOutput);
-      
-      // FALLBACK: If AI sends an empty content field, we use "..." 
-      // This prevents the 'min(1)' validation in your DB or schema from failing.
-      const finalContent = (parsed.content && parsed.content.trim()) 
-        ? parsed.content.trim() 
-        : "..."; 
+  try {
+    const parsed = JSON.parse(rawOutput);
+    
+    // Check for 'content' OR 'message' or any text field the AI might have hallucinated
+    const extractedText = parsed.content || parsed.message || parsed.text;
+    
+    const finalContent = (extractedText && extractedText.trim()) 
+      ? extractedText.trim() 
+      : "..."; 
 
-      // 6. Persist Response
-      const { data: savedMessage, error } = await supabaseAdmin
-        .from("messages")
-        .insert({ 
-          conversation_id: conversationId, 
-          role: "assistant", 
-          content: finalContent,
-        })
-        .select()
-        .single();
+    // 6. Persist Response
+    const { data: savedMessage, error: insertError } = await supabaseAdmin
+      .from("messages")
+      .insert({ 
+        conversation_id: conversationId, 
+        role: "assistant", 
+        content: finalContent,
+        // Ensure user_id is passed if your RLS policies require it for the assistant
+        user_id: userId 
+      })
+      .select()
+      .single();
 
-      if (error) {
-        console.error("Supabase Insert Error:", error);
-        throw error;
-      }
-      
-      return savedMessage;
-
-    } catch (e) {
-      // If parsing fails entirely, we log the raw output for debugging 
-      // but return a graceful error instead of crashing the whole server.
-      console.error("🔥 AI RESPONSE CRASH. Raw Output:", rawOutput);
-      throw new Error("The sanctuary is quiet. Please try again in a moment.");
+    if (insertError) {
+      console.error("❌ DATABASE INSERT FAIL:", insertError);
+      throw insertError;
     }
+    
+    console.log("✅ Message saved successfully:", savedMessage.id);
+    return savedMessage;
+
+  } catch (e) {
+    console.error("🔥 AI RESPONSE CRASH. Raw Output:", rawOutput);
+    // Return a structured object so the UI knows how to handle the silence
+    return {
+      role: "assistant",
+      content: "The sanctuary is quiet. My thoughts are still forming.",
+      error: true
+    };
+  }
 }

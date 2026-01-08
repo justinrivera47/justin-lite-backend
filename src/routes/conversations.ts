@@ -91,20 +91,28 @@ router.post(
   validate(respondSchema),
   async (req, res, next) => {
     try {
+      const { id: conversationId } = req.params;
+      const userId = req.user!.id;
+
       const userMessage = await createMessage(
-        req.params.id,
-        req.user!.id,
+        conversationId,
+        userId,
         "user",
         req.body.content
       );
 
       const assistantMessage = await generateAssistantResponse(
-        req.params.id,
-        req.user!.id
+        conversationId,
+        userId
       );
 
-      res.status(201).json({ userMessage, assistantMessage });
+      res.status(201).json({ 
+        userMessage, 
+        assistantMessage 
+      });
+      
     } catch (err) {
+      console.error("Error in /respond route:", err);
       next(err);
     }
   }
