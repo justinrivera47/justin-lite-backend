@@ -85,28 +85,20 @@ export async function generateAssistantResponse(conversationId: string, userId: 
       ? extractedText.trim() 
       : "..."; 
 
-    // 6. Persist Response
-    const { data: savedMessage, error: insertError } = await supabaseAdmin
-      .from("messages")
-      .insert({ 
-        conversation_id: conversationId, 
-        role: "assistant", 
-        content: finalContent,
-        // Ensure user_id is passed if your RLS policies require it for the assistant
-        user_id: userId 
-      })
-      .select()
-      .single();
+const { data: savedMessage, error: insertError } = await supabaseAdmin
+  .from("messages")
+  .insert({ 
+    conversation_id: conversationId, 
+    role: "assistant", 
+    content: finalContent 
+  })
+  .select()
+  .single();
 
-    if (insertError) {
-      console.error("❌ DATABASE INSERT FAIL:", insertError);
-      throw insertError;
-    }
-    
-    console.log("✅ Message saved successfully:", savedMessage.id);
-    return savedMessage;
-
-  } catch (e) {
+if (insertError) {
+  console.error("❌ DATABASE INSERT FAIL:", insertError);
+  throw insertError;
+}} catch (e) {
     console.error("🔥 AI RESPONSE CRASH. Raw Output:", rawOutput);
     // Return a structured object so the UI knows how to handle the silence
     return {
