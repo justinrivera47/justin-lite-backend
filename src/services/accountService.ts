@@ -31,3 +31,21 @@ export async function deleteUserAccount(userId: string) {
   
   if (authErr) throw authErr
 }
+
+export async function updateUserProfile(userId: string, first_name: string, last_name: string) {
+  const supabaseAdmin = getSupabaseAdmin();
+  
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .update({ 
+      first_name, 
+      last_name,
+      updated_at: new Date().toISOString() 
+    })
+    .eq("id", userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
