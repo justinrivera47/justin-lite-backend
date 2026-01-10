@@ -1,11 +1,9 @@
-// src/services/aiService.ts
 import OpenAI from "openai"
 import { openai } from "../lib/openai"
 import { getSupabaseAdmin } from "../lib/supabase"
 
 type ChatRole = "system" | "user" | "assistant"
 
-// --- helper: parse content while stripping JSON markers if AI fails to be 'Lite' ---
 function cleanContent(raw: string): string {
   try {
     const parsed = JSON.parse(raw);
@@ -18,7 +16,6 @@ function cleanContent(raw: string): string {
 export async function generateAssistantResponse(conversationId: string, userId: string) {
   const supabaseAdmin = getSupabaseAdmin()
 
-  // 1. Fetch Convo State
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("id, system_prompt, summary")
@@ -27,7 +24,6 @@ export async function generateAssistantResponse(conversationId: string, userId: 
 
   if (!conversation) throw new Error("Sanctuary not found")
 
-  // 2. Fetch Global Memories (The Stability Anchor)
   const { data: memories } = await supabaseAdmin
     .from("user_memories")
     .select("key, value")
@@ -45,7 +41,6 @@ export async function generateAssistantResponse(conversationId: string, userId: 
                      " Important: You must respond in a valid JSON format with a 'content' field.";
   prompt.push({ role: "system", content: basePrompt });
 
-  // Inject Stable Truths as Constraints
   if (memories?.length) {
     const memoryContext = memories.map(m => `- ${m.key}: ${m.value}`).join("\n")
     prompt.push({ 
@@ -58,35 +53,32 @@ export async function generateAssistantResponse(conversationId: string, userId: 
     prompt.push({ role: "system", content: `LOCAL CONTEXT: ${conversation.summary}` })
   }
 
-  // 4. Message Window
   messages?.slice(-12).forEach(msg => {
     prompt.push({ role: msg.role as ChatRole, content: msg.content })
   })
 
-  // 5. Completion with JSON enforcement
-  const completion = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4o", // or your preferred model
+ const completion = await openai.chat.completions.create({
+    model: process.env.OPENAI_MODEL || "gpt-4o",
     messages: prompt,
     temperature: 0.3,
+    max_tokens: 500,
     response_format: { type: "json_object" } 
   });
 
   const rawOutput = completion.choices[0]?.message?.content || "{}";
-  console.log("DEBUG: AI raw output:", rawOutput); // Check your logs for this!
+  console.log("DEBUG: AI raw output:", rawOutput);
 
   try {
     const parsed = JSON.parse(rawOutput);
     const extractedText = parsed.content || parsed.message || parsed.text;
     const finalContent = (extractedText && extractedText.trim()) ? extractedText.trim() : "..."; 
 
-    // 6. Persist Response
     const { data: savedMessage, error: insertError } = await supabaseAdmin
       .from("messages")
       .insert({ 
         conversation_id: conversationId, 
         role: "assistant", 
         content: finalContent 
-        // Note: No user_id here, as confirmed by your schema
       })
       .select()
       .single();
@@ -96,14 +88,14 @@ export async function generateAssistantResponse(conversationId: string, userId: 
       throw insertError;
     }
 
-    return savedMessage; // Ensure this is returned!
+    return savedMessage;
 
   } catch (e) {
-    console.error("🔥 AI RESPONSE CRASH. Raw Output:", rawOutput);
+    console.error("🔥 AI RESPONSE CRASH:", e);
     return {
       role: "assistant",
-      content: "The sanctuary is quiet. My thoughts are still forming.",
+      content: "The mirror is clouded right now. I'll leave you with your last thought until I can see clearly again.",
       error: true
     };
-  }
+}
 }
