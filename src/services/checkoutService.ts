@@ -1,3 +1,5 @@
+// src/services/checkoutService.ts
+
 import { getStripe } from "../lib/stripe"
 
 export async function createCheckoutSession(userId: string, email: string) {
@@ -5,7 +7,7 @@ export async function createCheckoutSession(userId: string, email: string) {
 
   const customer = await stripe.customers.create({
     email,
-    metadata: { userId },
+    metadata: { userId }, 
   })
 
   const session = await stripe.checkout.sessions.create({
@@ -17,6 +19,9 @@ export async function createCheckoutSession(userId: string, email: string) {
         quantity: 1,
       },
     ],
+    subscription_data: {
+      metadata: { userId },
+    },
     success_url: `${process.env.FRONTEND_URL}/billing/success`,
     cancel_url: `${process.env.FRONTEND_URL}/billing/cancel`,
   })

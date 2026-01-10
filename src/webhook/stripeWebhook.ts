@@ -66,38 +66,47 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
         break
       }
 
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription
+      // ... inside switch (event.type)
 
-        const customer = (await stripe.customers.retrieve(
-          subscription.customer as string
-        )) as Stripe.Customer
+case "customer.subscription.created":
+case "customer.subscription.updated":
+case "customer.subscription.deleted": {
+  const subscription = event.data.object as Stripe.Subscription
 
-        const userId = customer.metadata?.userId
-        if (!userId) {
-          console.error("[stripe] Missing userId in customer metadata", {
-            customerId: customer.id,
-            subscriptionId: subscription.id,
-          })
-          break
-        }
+  // 1. Try to get userId directly from the SUBSCRIPTION metadata first
+  let userId = subscription.metadata?.userId
 
-        await upsertSubscription({
-          userId,
-          stripeCustomerId: customer.id,
-          stripeSubscriptionId: subscription.id,
-          status: subscription.status,
-          currentPeriodStart: (subscription as any).current_period_start ?? null,
-          currentPeriodEnd: (subscription as any).current_period_end ?? null,
-          stripePriceId:
-            (subscription as any).items?.data?.[0]?.price?.id ?? null,
-          planCode: "pro_15",
-        })
+  // 2. If not found, fall back to fetching the CUSTOMER and checking there
+  if (!userId) {
+    const customer = (await stripe.customers.retrieve(
+      subscription.customer as string
+    )) as Stripe.Customer
+    userId = customer.metadata?.userId
+  }
+
+  // 3. Final check: If we still don't have a userId, we can't update the DB
+  if (!userId) {
+    console.warn("[stripe] No userId found in subscription or customer metadata", {
+      subscriptionId: subscription.id,
+      customerId: subscription.customer
+    })
+    // RETURN 200 so Stripe stops retrying a "broken" event
+    return res.status(200).json({ received: true, warning: "No userId mapped" })
+  }
+
+  await upsertSubscription({
+    userId,
+    stripeCustomerId: subscription.customer as string,
+    stripeSubscriptionId: subscription.id,
+    status: subscription.status,
+    currentPeriodStart: (subscription as any).subscription.current_period_start ?? null,
+    currentPeriodEnd: (subscription as any).subscription.current_period_end ?? null,
+    stripePriceId: subscription.items?.data?.[0]?.price?.id ?? null,
+    planCode: "pro_15",
+  })
 
         break
-      }
+    }
 
       default:
         break
