@@ -1,4 +1,3 @@
-import { NotFoundError } from "../errors/NotFoundError"
 import { openai } from "../lib/openai"
 import { getSupabaseAdmin } from "../lib/supabase"
 import type { ChatCompletionMessageParam } from "openai/resources/chat"
@@ -7,16 +6,24 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat"
 export async function updateConversationSummary(
   conversationId: string,
   userId: string
-) {
+): Promise<{ updated: boolean; error?: string }> {
   const supabaseAdmin = getSupabaseAdmin()
-  
-  const { data: conversation } = await supabaseAdmin
+
+  // SECURITY: Verify user owns this conversation
+  const { data: conversation, error: fetchError } = await supabaseAdmin
     .from("conversations")
     .select("id, summary, summary_count")
     .eq("id", conversationId)
-    .single()
+    .eq("user_id", userId)
+    .maybeSingle()
 
-  if (!conversation) return
+  if (fetchError) {
+    return { updated: false, error: fetchError.message }
+  }
+
+  if (!conversation) {
+    return { updated: false, error: "Conversation not found or access denied" }
+  }
 
   const { data: messages } = await supabaseAdmin
     .from("messages")
@@ -25,7 +32,9 @@ export async function updateConversationSummary(
     .order("created_at", { ascending: true })
     .limit(20)
 
-  if (!messages || messages.length === 0) return
+  if (!messages || messages.length === 0) {
+    return { updated: false, error: "No messages to summarize" }
+  }
 
   const summaryPrompt: ChatCompletionMessageParam[] = [
     {
@@ -45,13 +54,23 @@ export async function updateConversationSummary(
   })
 
   const newSummary = completion.choices[0]?.message?.content?.trim()
-  if (!newSummary || newSummary === conversation.summary) return
+  if (!newSummary || newSummary === conversation.summary) {
+    return { updated: false }
+  }
 
-  await supabaseAdmin
+  // SECURITY: Also verify user_id on update
+  const { error: updateError } = await supabaseAdmin
     .from("conversations")
     .update({
       summary: newSummary,
       summary_count: (conversation.summary_count ?? 0) + 1,
     })
     .eq("id", conversationId)
+    .eq("user_id", userId)
+
+  if (updateError) {
+    return { updated: false, error: updateError.message }
+  }
+
+  return { updated: true }
 }

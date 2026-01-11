@@ -9,3 +9,12 @@ export const updateProfileSchema = z
   .refine((v) => v.first_name || v.last_name, {
     message: "Nothing to update",
   });
+
+// Requires explicit confirmation to delete account
+export const deleteAccountSchema = z.object({
+  confirm: z.literal("DELETE_MY_ACCOUNT", {
+    errorMap: () => ({
+      message: 'You must send { "confirm": "DELETE_MY_ACCOUNT" } to delete your account',
+    }),
+  }),
+});

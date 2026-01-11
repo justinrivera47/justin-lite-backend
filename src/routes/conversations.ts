@@ -54,35 +54,36 @@ router.post(
 router.patch(
   "/:id",
   requireAuth,
+  writeRateLimiter,
   validate(updateTitleSchema),
   async (req, res, next) => {
     try {
       res.json(
         await updateConversationTitle(req.params.id, req.user!.id, req.body.title)
-      );
+      )
     } catch (err) {
-      next(err);
+      next(err)
     }
   }
-);
+)
 
-router.delete("/:id", requireAuth, async (req, res, next) => {
+router.delete("/:id", requireAuth, writeRateLimiter, async (req, res, next) => {
   try {
-    await deleteConversation(req.params.id, req.user!.id);
-    res.status(204).send();
+    await deleteConversation(req.params.id, req.user!.id)
+    res.status(204).send()
   } catch (err) {
-    next(err);
+    next(err)
   }
-});
+})
 
 // Messages
-router.get("/:id/messages", requireAuth, async (req, res, next) => {
+router.get("/:id/messages", requireAuth, readRateLimiter, async (req, res, next) => {
   try {
-    res.json(await getMessagesForConversation(req.params.id, req.user!.id));
+    res.json(await getMessagesForConversation(req.params.id, req.user!.id))
   } catch (err) {
-    next(err);
+    next(err)
   }
-});
+})
 
 router.post(
   "/:id/respond",
@@ -112,10 +113,9 @@ router.post(
       });
       
     } catch (err) {
-      console.error("Error in /respond route:", err);
-      next(err);
+      next(err)
     }
   }
-);
+)
 
-export default router;
+export default router

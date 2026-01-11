@@ -13,15 +13,19 @@ export async function requireActiveSubscription(
   const supabaseAdmin = getSupabaseAdmin()
   const allowed = new Set(["active", "trialing"])
 
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("subscriptions")
     .select("status, current_period_end")
     .eq("user_id", req.user.id)
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    throw new AuthError("Failed to verify subscription")
+  }
 
   if (!data || !allowed.has(data.status)) {
-  throw new AuthError("Active subscription required")
-}
+    throw new AuthError("Active subscription required")
+  }
 
   next()
 }

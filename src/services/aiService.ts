@@ -16,24 +16,28 @@ function cleanContent(raw: string): string {
 export async function generateAssistantResponse(conversationId: string, userId: string) {
   const supabaseAdmin = getSupabaseAdmin()
 
+  // SECURITY: Verify user owns this conversation
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("id, system_prompt, summary")
     .eq("id", conversationId)
-    .single()
+    .eq("user_id", userId)
+    .maybeSingle()
 
-  if (!conversation) throw new Error("Sanctuary not found")
+  if (!conversation) throw new Error("Conversation not found or access denied")
 
   const { data: memories } = await supabaseAdmin
     .from("user_memories")
     .select("key, value")
     .eq("user_id", userId)
 
+  // Fetch only recent messages (limit at DB level for efficiency)
   const { data: messages } = await supabaseAdmin
     .from("messages")
     .select("role, content")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
+    .limit(12)
 
   const prompt: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
 
@@ -53,7 +57,9 @@ export async function generateAssistantResponse(conversationId: string, userId: 
     prompt.push({ role: "system", content: `LOCAL CONTEXT: ${conversation.summary}` })
   }
 
-  messages?.slice(-12).forEach(msg => {
+  // Reverse to get chronological order (we fetched desc to get most recent 12)
+  const recentMessages = messages?.reverse() || []
+  recentMessages.forEach(msg => {
     prompt.push({ role: msg.role as ChatRole, content: msg.content })
   })
 
@@ -66,7 +72,6 @@ export async function generateAssistantResponse(conversationId: string, userId: 
   });
 
   const rawOutput = completion.choices[0]?.message?.content || "{}";
-  console.log("DEBUG: AI raw output:", rawOutput);
 
   try {
     const parsed = JSON.parse(rawOutput);
@@ -84,18 +89,13 @@ export async function generateAssistantResponse(conversationId: string, userId: 
       .single();
 
     if (insertError) {
-      console.error("❌ DATABASE INSERT FAIL:", insertError);
       throw insertError;
     }
 
     return savedMessage;
 
   } catch (e) {
-    console.error("🔥 AI RESPONSE CRASH:", e);
-    return {
-      role: "assistant",
-      content: "The mirror is clouded right now. I'll leave you with your last thought until I can see clearly again.",
-      error: true
-    };
-}
+    // Re-throw to let error handler deal with it consistently
+    throw e;
+  }
 }
