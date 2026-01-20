@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express"
 import {
   getCheckoutSessionEmail,
   completeSignup as completeSignupService,
+  checkEmailExists,
 } from "../services/signupService"
 
 export async function getSessionEmail(
@@ -32,6 +33,22 @@ export async function completeSignup(
     const result = await completeSignupService(session_id, password)
 
     return res.status(201).json(result)
+  } catch (err) {
+    return next(err)
+  }
+}
+
+export async function checkEmail(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const email = req.query.email as string
+
+    const result = await checkEmailExists(email)
+
+    return res.status(200).json(result)
   } catch (err) {
     return next(err)
   }

@@ -9,6 +9,10 @@ type CheckoutEmailResult = {
   exists: boolean
 }
 
+type CheckEmailResult = {
+  exists: boolean
+}
+
 type CompleteSignupResult = {
   success: boolean
   userId: string
@@ -146,4 +150,22 @@ export async function completeSignup(
   }
 
   return { success: true, userId }
+}
+
+export async function checkEmailExists(email: string): Promise<CheckEmailResult> {
+  const supabaseAdmin = getSupabaseAdmin()
+
+  if (!email) {
+    throw new AppError("Email is required", 400, "EMAIL_REQUIRED")
+  }
+
+  const { data: existingUsers } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("email", email.toLowerCase().trim())
+    .limit(1)
+
+  const exists = !!(existingUsers && existingUsers.length > 0)
+
+  return { exists }
 }
