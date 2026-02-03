@@ -136,15 +136,18 @@ export async function completeSignup(
       metadata: { userId },
     })
 
+    // Extract period from subscription items (Stripe API 2025+)
+    const item = subscription.items?.data?.[0]
+
     // Create subscription record in database
     await upsertSubscription({
       userId,
       stripeCustomerId: customerId,
       stripeSubscriptionId: subscriptionId,
       status: subscription.status,
-      currentPeriodStart: (subscription as any).current_period_start ?? null,
-      currentPeriodEnd: (subscription as any).current_period_end ?? null,
-      stripePriceId: subscription.items?.data?.[0]?.price?.id ?? null,
+      currentPeriodStart: item?.current_period_start ?? null,
+      currentPeriodEnd: item?.current_period_end ?? null,
+      stripePriceId: item?.price?.id ?? null,
       planCode: "pro_15",
     })
   }
