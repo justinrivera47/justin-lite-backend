@@ -20,6 +20,7 @@ export async function createCheckoutSession(userId: string, email: string) {
       },
     ],
     subscription_data: {
+      trial_period_days: 7,
       metadata: { userId },
     },
     success_url: `${process.env.FRONTEND_URL}/billing/success`,
