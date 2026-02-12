@@ -4,15 +4,6 @@ import { getSupabaseAdmin } from "../lib/supabase"
 
 type ChatRole = "system" | "user" | "assistant"
 
-function cleanContent(raw: string): string {
-  try {
-    const parsed = JSON.parse(raw);
-    return (parsed.content || raw).trim();
-  } catch {
-    return raw.trim();
-  }
-}
-
 export async function generateAssistantResponse(conversationId: string, userId: string) {
   const supabaseAdmin = getSupabaseAdmin()
 
@@ -37,33 +28,35 @@ export async function generateAssistantResponse(conversationId: string, userId: 
 
   const prompt: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
 
-  const basePrompt = (process.env.SYSTEM_PROMPT || "You are Justin Lite.") + 
-                     " Important: You must respond in a valid JSON format with a 'content' field.";
-  prompt.push({ role: "system", content: basePrompt });
+  const basePrompt = process.env.SYSTEM_PROMPT || "You are Justin Lite. Output valid JSON with a content field."
+  prompt.push({ role: "system", content: basePrompt })
 
   if (memories?.length) {
     const memoryContext = memories.map(m => `- ${m.key}: ${m.value}`).join("\n")
-    prompt.push({ 
-      role: "system", 
-      content: `STABLE USER TRUTHS (Do not re-explore these unless challenged by the user):\n${memoryContext}` 
+    prompt.push({
+      role: "system",
+      content: `WHAT YOU KNOW ABOUT THIS USER (treat as settled unless they contradict it):\n${memoryContext}\n\nUse these to recognize patterns. Do not re-ask questions you already have answers to.`
     })
   }
 
   if (conversation.summary) {
-    prompt.push({ role: "system", content: `LOCAL CONTEXT: ${conversation.summary}` })
+    prompt.push({
+      role: "system",
+      content: `CONVERSATION SO FAR:\n${conversation.summary}\n\nBuild on this. Do not summarize it back to the user.`
+    })
   }
 
-  messages?.slice(-12).forEach(msg => {
+  messages?.slice(-20).forEach(msg => {
     prompt.push({ role: msg.role as ChatRole, content: msg.content })
   })
 
- const completion = await openai.chat.completions.create({
+  const completion = await openai.chat.completions.create({
     model: process.env.OPENAI_MODEL || "gpt-4o",
     messages: prompt,
     temperature: 0.3,
-    max_tokens: 500,
-    response_format: { type: "json_object" } 
-  });
+    max_tokens: 700,
+    response_format: { type: "json_object" }
+  })
 
   const rawOutput = completion.choices[0]?.message?.content || "{}";
   console.log("DEBUG: AI raw output:", rawOutput);

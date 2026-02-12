@@ -15,23 +15,33 @@ export async function extractUserMemory(
     .eq("user_id", userId)
 
   const memoryPrompt: ChatCompletionMessageParam[] = [
-  {
-    role: "system",
-    content: `
-      You extract long-term user memory into a JSON format.
-      Output must be a valid JSON object: {"memories": [{"key": "...", "value": "..."}]}
-      
-      Rules:
-      - Only extract stable truths likely to remain valid over time.
-      - Output strictly in JSON.
-      `,
-  },
+    {
+      role: "system",
+      content: `Extract long-term facts about this user that will remain true across conversations.
+
+WHAT TO EXTRACT:
+- Core struggles they have named (e.g., "primary_struggle": "porn addiction recovery")
+- Life context that affects their patterns (e.g., "relationship_status": "married, wife unaware of relapse history")
+- Self-identified triggers or drift patterns (e.g., "known_trigger": "late nights alone after wife sleeps")
+- Goals or commitments they have stated (e.g., "commitment": "90 days without relapse")
+
+WHAT NOT TO EXTRACT:
+- Temporary emotions or single-event details
+- Anything that sounds like advice or interpretation
+- Vague statements without specificity
+
+RULES:
+- Use snake_case for keys
+- Keep values as concise factual statements
+- If an existing memory is outdated based on new information, update the value
+- If a memory is no longer relevant, omit it from output
+
+OUTPUT FORMAT:
+{"memories": [{"key": "snake_case_key", "value": "concise factual statement"}]}`,
+    },
     {
       role: "user",
-      content: `
-Existing memory: ${JSON.stringify(existingMemory ?? [])}
-Recent Summaries: ${summaries.join("\n\n")}
-`,
+      content: `EXISTING MEMORIES:\n${JSON.stringify(existingMemory ?? [])}\n\nRECENT SUMMARIES:\n${summaries.join("\n\n")}`,
     },
   ]
 

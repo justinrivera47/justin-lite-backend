@@ -1,4 +1,3 @@
-import { NotFoundError } from "../errors/NotFoundError"
 import { openai } from "../lib/openai"
 import { getSupabaseAdmin } from "../lib/supabase"
 import type { ChatCompletionMessageParam } from "openai/resources/chat"
@@ -30,11 +29,27 @@ export async function updateConversationSummary(
   const summaryPrompt: ChatCompletionMessageParam[] = [
     {
       role: "system",
-      content: "You are Justin Lite's internal chronicler. Document only settled insights. Do not add advice or noise. If no new insight exists, return the existing summary exactly."
+      content: `You are Justin Lite's internal chronicler. Maintain a living summary of this conversation.
+
+CAPTURE ONLY:
+- Patterns the user has named or that emerged
+- Drift moments identified (when they lost control or attention)
+- Questions they are sitting with
+- Contradictions or tensions surfaced
+
+DO NOT INCLUDE:
+- Advice or interpretations
+- Commentary on what they should do
+- Repetition of what was already in the previous summary
+
+RULES:
+- If nothing new has emerged, return the existing summary exactly
+- Keep under 150 words
+- Plain prose, no bullets or lists`
     },
     {
       role: "user",
-      content: `Current Summary: ${conversation.summary || "None"}\n\nRecent messages:\n${messages.map(m => `${m.role}: ${m.content}`).join("\n")}`
+      content: `CURRENT SUMMARY:\n${conversation.summary || "None"}\n\nRECENT MESSAGES:\n${messages.map(m => `${m.role}: ${m.content}`).join("\n")}`
     }
   ]
 
